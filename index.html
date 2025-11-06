@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memória Tech (com Placar)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1e1e2f;
+            color: #f0f0f0;
+            margin: 0;
+        }
+        h1 {
+            color: #82aaff;
+        }
+
+        /* NOVO: Estilo para o painel de placar */
+        .score-panel {
+            display: flex;
+            justify-content: space-evenly;
+            width: 300px;
+            margin-bottom: 15px;
+            background-color: #4a4a6a;
+            border-radius: 8px;
+            padding: 5px 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .score-panel p {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 5px 10px;
+        }
+        .score-panel span {
+            color: #82aaff;
+            font-size: 20px;
+            min-width: 20px;
+            display: inline-block;
+            text-align: left;
+        }
+
+        .memory-game {
+            width: 800px;
+            height: 600px;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 10px;
+            perspective: 1000px;
+        }
+        .memory-card {
+            width: 120px;
+            height: 140px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+        .memory-card.flip {
+            transform: rotateY(180deg);
+        }
+        .memory-card.matched {
+            opacity: 0.5;
+            cursor: default;
+        }
+        .front-face,
+        .back-face {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            box-sizing: border-box;
+            padding: 5px;
+        }
+        .front-face {
+            background-color: #4a4a6a;
+            color: #e0e0e0;
+            transform: rotateY(180deg);
+        }
+        .back-face {
+            background-color: #82aaff;
+            color: #1e1e2f;
+            font-size: 48px;
+            content: '?';
+        }
+        #reset-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #1e1e2f;
+            background-color: #82aaff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #reset-button:hover {
+            background-color: #a0c0ff;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🧠 Memória Tech</h1>
+
+    <div class="score-panel">
+        <p>Acertos: <span id="acertos-count">0</span></p>
+        <p>Erros: <span id="erros-count">0</span></p>
+    </div>
+
+    <div class="memory-game" id="game-board">
+        </div>
+    
+    <button id="reset-button">Reiniciar Jogo</button>
+
+    <script>
+        const gameBoard = document.getElementById('game-board');
+        const resetButton = document.getElementById('reset-button');
+        
+        // NOVO: Pegando os elementos do placar
+        const acertosDisplay = document.getElementById('acertos-count');
+        const errosDisplay = document.getElementById('erros-count');
+        
+        const cardData = [
+            { text: 'CPU', pair: 'p1' },
+            { text: 'Cérebro do Computador', pair: 'p1' },
+            { text: 'RAM', pair: 'p2' },
+            { text: 'Memória Volátil', pair: 'p2' },
+            { text: 'SSD / HD', pair: 'p3' },
+            { text: 'Armazenamento Permanente', pair: 'p3' },
+            { text: 'Hardware', pair: 'p4' },
+            { text: 'Parte Física (Monitor)', pair: 'p4' },
+            { text: 'Software', pair: 'p5' },
+            { text: 'Parte Lógica (Apps)', pair: 'p5' },
+            { text: 'Firewall', pair: 'p6' },
+            { text: 'Barreira de Segurança', pair: 'p6' },
+            { text: 'Phishing', pair: 'p7' },
+            { text: 'Golpe por E-mail', pair: 'p7' },
+            { text: 'HTML', pair: 'p8' },
+            { text: 'Estrutura de Sites', pair: 'p8' },
+            { text: 'Python', pair: 'p9' },
+            { text: 'Linguagem de Programação', pair: 'p9' },
+            { text: 'Wi-Fi', pair: 'p10' },
+            { text: 'Rede Sem Fio', pair: 'p10' },
+            { text: 'Backup', pair: 'p11' },
+            { text: 'Cópia de Segurança', pair: 'p11' },
+            { text: 'Malware', pair: 'p12' },
+            { text: 'Vírus / Software Malicioso', pair: 'p12' }
+        ];
+
+        let hasFlippedCard = false;
+        let lockBoard = false;
+        let firstCard, secondCard;
+
+        // NOVO: Variáveis do placar
+        let acertos;
+        let erros;
+
+        // Função para criar o tabuleiro
+        function createBoard() {
+            // NOVO: Zera o placar
+            acertos = 0;
+            erros = 0;
+            acertosDisplay.textContent = acertos;
+            errosDisplay.textContent = erros;
+            
+            gameBoard.innerHTML = ''; // Limpa o tabuleiro
+            
+            cardData.sort(() => 0.5 - Math.random());
+
+            cardData.forEach(item => {
+                const card = document.createElement('div');
+                card.classList.add('memory-card');
+                card.dataset.pair = item.pair;
+
+                card.innerHTML = `
+                    <div class="front-face">${item.text}</div>
+                    <div class="back-face">?</div>
+                `;
+                
+                card.addEventListener('click', flipCard);
+                gameBoard.appendChild(card);
+            });
+        }
+
+        // Função para virar a carta
+        function flipCard() {
+            if (lockBoard) return;
+            if (this === firstCard) return;
+
+            this.classList.add('flip');
+
+            if (!hasFlippedCard) {
+                hasFlippedCard = true;
+                firstCard = this;
+                return;
+            }
+
+            secondCard = this;
+            checkForMatch();
+        }
+
+        // Função para checar se formou par
+        function checkForMatch() {
+            let isMatch = firstCard.dataset.pair === secondCard.dataset.pair;
+            isMatch ? disableCards() : unflipCards();
+        }
+
+        // Se acertou o par
+        function disableCards() {
+            // NOVO: Incrementa acertos
+            acertos++;
+            acertosDisplay.textContent = acertos;
+
+            firstCard.classList.add('matched');
+            secondCard.classList.add('matched');
+            
+            firstCard.removeEventListener('click', flipCard);
+            secondCard.removeEventListener('click', flipCard);
+
+            resetBoard();
+        }
+
+        // Se errou o par
+        function unflipCards() {
+            // NOVO: Incrementa erros
+            erros++;
+            errosDisplay.textContent = erros;
+            
+            lockBoard = true;
+
+            setTimeout(() => {
+                firstCard.classList.remove('flip');
+                secondCard.classList.remove('flip');
+                resetBoard();
+            }, 1200); 
+        }
+
+        // Reseta as variáveis do jogo
+        function resetBoard() {
+            [hasFlippedCard, lockBoard] = [false, false];
+            [firstCard, secondCard] = [null, null];
+        }
+
+        // Evento do botão de reiniciar
+        resetButton.addEventListener('click', createBoard);
+
+        // Inicia o jogo pela primeira vez
+        createBoard();
+
+    </script>
+</body>
+</html>
